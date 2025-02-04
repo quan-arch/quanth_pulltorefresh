@@ -110,8 +110,7 @@ class RefreshPhysics extends ScrollPhysics {
   @override
   double applyPhysicsToUserOffset(ScrollMetrics position, double offset) {
     // TODO: implement applyPhysicsToUserOffset
-    viewportRender ??=
-        findViewport(controller!.position?.context.storageContext);
+    viewportRender ??= findViewport(safeContext);
     if (controller!.headerMode!.value == RefreshStatus.twoLeveling) {
       if (offset > 0.0) {
         return parent!.applyPhysicsToUserOffset(position, offset);
@@ -170,8 +169,7 @@ class RefreshPhysics extends ScrollPhysics {
   @override
   double applyBoundaryConditions(ScrollMetrics position, double value) {
     final ScrollPosition scrollPosition = position as ScrollPosition;
-    viewportRender ??=
-        findViewport(controller!.position?.context.storageContext);
+    viewportRender ??= findViewport(safeContext);
     bool notFull = position.minScrollExtent == position.maxScrollExtent;
     final bool enablePullDown = viewportRender == null
         ? false
@@ -263,45 +261,48 @@ class RefreshPhysics extends ScrollPhysics {
   @override
   Simulation? createBallisticSimulation(
       ScrollMetrics position, double velocity) {
-    /// any issue come with context, do nothing
-    try {
-      viewportRender ??=
-          findViewport(controller!.position?.context.storageContext);
+    viewportRender ??= findViewport(safeContext);
 
-      final bool enablePullDown = viewportRender == null
-          ? false
-          : viewportRender!.firstChild is RenderSliverRefresh;
-      final bool enablePullUp = viewportRender == null
-          ? false
-          : viewportRender!.lastChild is RenderSliverLoading;
-      if (controller!.headerMode!.value == RefreshStatus.twoLeveling) {
-        if (velocity < 0.0) {
-          return parent!.createBallisticSimulation(position, velocity);
-        }
-      } else if (!position.outOfRange) {
-        if ((velocity < 0.0 && !enablePullDown) ||
-            (velocity > 0 && !enablePullUp)) {
-          return parent!.createBallisticSimulation(position, velocity);
-        }
+    final bool enablePullDown = viewportRender == null
+        ? false
+        : viewportRender!.firstChild is RenderSliverRefresh;
+    final bool enablePullUp = viewportRender == null
+        ? false
+        : viewportRender!.lastChild is RenderSliverLoading;
+    if (controller!.headerMode!.value == RefreshStatus.twoLeveling) {
+      if (velocity < 0.0) {
+        return parent!.createBallisticSimulation(position, velocity);
       }
-      if ((position.pixels > 0 &&
-              controller!.headerMode!.value == RefreshStatus.twoLeveling) ||
-          position.outOfRange) {
-        return BouncingScrollSimulation(
-          spring: springDescription ?? spring,
-          position: position.pixels,
-          // -1.0 avoid stop springing back ,and release gesture
-          velocity: velocity * 0.91,
-          // TODO(abarth): We should move this constant closer to the drag end.
-          leadingExtent: position.minScrollExtent,
-          trailingExtent:
-              controller!.headerMode!.value == RefreshStatus.twoLeveling
-                  ? 0.0
-                  : position.maxScrollExtent,
-          tolerance: tolerance,
-        );
+    } else if (!position.outOfRange) {
+      if ((velocity < 0.0 && !enablePullDown) ||
+          (velocity > 0 && !enablePullUp)) {
+        return parent!.createBallisticSimulation(position, velocity);
       }
-      return super.createBallisticSimulation(position, velocity);
+    }
+    if ((position.pixels > 0 &&
+        controller!.headerMode!.value == RefreshStatus.twoLeveling) ||
+        position.outOfRange) {
+      return BouncingScrollSimulation(
+        spring: springDescription ?? spring,
+        position: position.pixels,
+        // -1.0 avoid stop springing back ,and release gesture
+        velocity: velocity * 0.91,
+        // TODO(abarth): We should move this constant closer to the drag end.
+        leadingExtent: position.minScrollExtent,
+        trailingExtent:
+        controller!.headerMode!.value == RefreshStatus.twoLeveling
+            ? 0.0
+            : position.maxScrollExtent,
+        tolerance: tolerance,
+      );
+    }
+    return super.createBallisticSimulation(position, velocity);
+  }
+
+  BuildContext? get safeContext{
+    try {
+      final context = controller!.position?.context.storageContext;
+      return context;
     } catch (e) {
       return null;
     }
